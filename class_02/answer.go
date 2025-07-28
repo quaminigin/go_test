@@ -2,7 +2,10 @@ package class_02
 
 import (
 	"fmt"
+	"math"
+	"math/rand"
 	"sync"
+	"sync/atomic"
 	"time"
 )
 
@@ -69,4 +72,182 @@ func TaskScheduling(tasks []func()) {
 	}
 	wg.Wait()
 	fmt.Println(timeStatistics)
+}
+
+/*
+面向对象
+1. 题目 ：定义一个 Shape 接口，包含 Area() 和 Perimeter() 两个方法。
+然后创建 Rectangle 和 Circle 结构体，实现 Shape 接口。
+在主函数中，创建这两个结构体的实例，并调用它们的 Area() 和 Perimeter() 方法。
+考察点 ：接口的定义与实现、面向对象编程风格。
+*/
+type Shape interface {
+	Area() float64
+	Perimeter() float64
+}
+
+type Rectangle struct {
+	Height float64
+	Width  float64
+}
+
+type Circle struct {
+	Radius float64
+}
+
+func (r *Rectangle) Area() float64 {
+	return r.Height * r.Width
+}
+
+func (r *Rectangle) Perimeter() float64 {
+	return (r.Height + r.Width) * 2
+}
+
+func (r *Circle) Area() float64 {
+	return r.Radius * r.Radius * math.Pi
+}
+
+func (r *Circle) Perimeter() float64 {
+	return 2 * math.Pi * r.Radius
+}
+
+/*
+面向对象
+2. 题目 ：使用组合的方式创建一个 Person 结构体，包含 Name 和 Age 字段，
+再创建一个 Employee 结构体，组合 Person 结构体并添加 EmployeeID 字段。
+为 Employee 结构体实现一个 PrintInfo() 方法，输出员工的信息。
+考察点 ：组合的使用、方法接收者。
+*/
+type Person struct {
+	Name string
+	Age  uint16
+}
+
+type Employee struct {
+	Person
+	EmployeeID string
+}
+
+func (e Employee) PrintInfo() {
+	fmt.Printf("Name : %s, Age : %d, EmployeeID : %s", e.Name, e.Age, e.EmployeeID)
+}
+
+/*
+Channel
+1. 题目 ：编写一个程序，使用通道实现两个协程之间的通信。一个协程生成从1到10的整数，
+并将这些整数发送到通道中，另一个协程从通道中接收这些整数并打印出来。
+考察点 ：通道的基本使用、协程间通信。
+*/
+func ChannelOfInt() {
+	chann := make(chan int, 10)
+	var wg sync.WaitGroup
+	wg.Add(2)
+	go func() {
+		for i := 1; i < 11; i++ {
+			chann <- i
+		}
+		wg.Done()
+	}()
+	go func() {
+		timeOut := time.After(100 * time.Second)
+	out:
+		for {
+			select {
+			case num, ok := <-chann:
+				if ok {
+					fmt.Println(num)
+					time.Sleep(500 * time.Millisecond)
+				} else {
+					fmt.Println("chan已关闭")
+					break out
+				}
+			case <-timeOut:
+				break out
+			}
+		}
+		wg.Done()
+	}()
+	wg.Wait()
+}
+
+/*
+2. 题目 ：实现一个带有缓冲的通道，生产者协程向通道中发送100个整数，消费者协程从通道中接收这些整数并打印。
+考察点 ：通道的缓冲机制。
+*/
+func BufferedChannel() {
+	chann := make(chan int, 30)
+	var wg sync.WaitGroup
+	wg.Add(2)
+	go func() {
+		for i := 0; i < 100; i++ {
+			chann <- rand.Int()
+		}
+		wg.Done()
+	}()
+	go func() {
+		timeOut := time.After(100 * time.Second)
+	out:
+		for {
+			select {
+			case num, ok := <-chann:
+				if ok {
+					fmt.Println(num)
+					time.Sleep(100 * time.Millisecond)
+				} else {
+					fmt.Println("chan已关闭")
+					break out
+				}
+			case <-timeOut:
+				break out
+			}
+		}
+		wg.Done()
+	}()
+	wg.Wait()
+}
+
+/*
+1. 题目 ：编写一个程序，使用 sync.Mutex 来保护一个共享的计数器。
+启动10个协程，每个协程对计数器进行1000次递增操作，最后输出计数器的值。
+考察点 ： sync.Mutex 的使用、并发数据安全。
+*/
+func SyncTest() {
+	count := 0
+	var wg sync.WaitGroup
+	var a sync.Mutex
+	for i := 0; i < 10; i++ {
+		wg.Add(1)
+		go func() {
+			for times := 0; times < 1000; times++ {
+				a.Lock()
+				count++
+				a.Unlock()
+			}
+			wg.Done()
+		}()
+	}
+	wg.Wait()
+	fmt.Println(count)
+}
+
+/*
+2. 题目 ：使用原子操作（ sync/atomic 包）实现一个无锁的计数器。
+启动10个协程，每个协程对计数器进行1000次递增操作，最后输出计数器的值。
+考察点 ：原子操作、并发数据安全。
+*/
+func AtomicTest() {
+	var count atomic.Uint32
+	var wg sync.WaitGroup
+	for i := 0; i < 10; i++ {
+		wg.Add(1)
+		go func() {
+			for times := 0; times < 1000; times++ {
+				// atomic.AddInt32(&count, 1)
+				count.Add(1)
+			}
+			wg.Done()
+		}()
+	}
+	wg.Wait()
+	fmt.Println(count.Load())
 }
